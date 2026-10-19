@@ -38,7 +38,7 @@ pipeline {
                     withCredentials([sshUserPrivateKey(credentialsId: 'ansible-server-key', keyFileVariable: 'keyfile', usernameVariable: 'user')]) {
                         remote.user = user
                         remote.identityFile = keyfile
-                        sshScript remote: remote, script: "ls -l; pwd"
+                        sh '''ssh -o StrictHostKeyChecking=no -i "$keyfile" "$user@$ANSIBLE_SERVER_IP" "ls -l; pwd"'''
                     }
                 }
             }
