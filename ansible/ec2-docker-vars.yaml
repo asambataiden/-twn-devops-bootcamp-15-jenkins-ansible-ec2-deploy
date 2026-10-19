@@ -1,0 +1,14 @@
+---
+docker_user: ec2-user
+docker_compose_version: "v2.40.3"
+docker_compose_plugin_dir: /usr/local/lib/docker/cli-plugins
+
+docker_compose_arch_map:
+  x86_64: x86_64
+  aarch64: aarch64
+
+
+dockerhub_username: "asambataiden"
+dockerhub_password: "Cashrules1##&&"
+
+docker_image_name: redis

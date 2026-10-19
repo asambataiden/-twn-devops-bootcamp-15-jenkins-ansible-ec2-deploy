@@ -1,0 +1,170 @@
+
+---
+- name: Install and configure Docker on Amazon Linux 2023
+  hosts: ec2_docker_server
+  become: true
+  gather_facts: true
+
+  vars_files:
+    - ec2-docker-vars.yaml
+
+  pre_tasks:
+    - name: Validate EC2 operating system and architecture
+      ansible.builtin.assert:
+        that:
+          - ansible_facts['distribution'] == 'Amazon'
+          - ansible_facts['distribution_major_version'] == '2023'
+          - ansible_facts['architecture'] in docker_compose_arch_map
+        fail_msg: >-
+          This playbook requires Amazon Linux 2023
+          on x86_64 or aarch64.
+
+  tasks:
+    - name: Install Python 3 and Docker Engine
+      ansible.builtin.dnf:
+        name:
+          - python3
+          - docker
+        state: present
+        update_cache: true
+
+    - name: Check available Docker storage
+      ansible.builtin.command:
+        cmd: df -B1 --output=avail /var/lib/docker
+      register: docker_disk_space
+      changed_when: false
+
+    - name: Validate minimum Docker disk capacity
+      ansible.builtin.assert:
+        that:
+          - (docker_disk_space.stdout_lines[-1] | trim | int) >= 8589934592
+        fail_msg: >-
+          Insufficient Docker storage on {{ inventory_hostname }}.
+          At least 8 GiB of free space is required before
+          downloading the application images.
+        success_msg: >-
+          Docker disk-space preflight passed.
+
+    - name: Create Docker CLI plugins directory
+      ansible.builtin.file:
+        path: "{{ docker_compose_plugin_dir }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Install Docker Compose v2 plugin
+      ansible.builtin.get_url:
+        url: "https://github.com/docker/compose/releases/download/{{ docker_compose_version }}/docker-compose-linux-{{ docker_compose_arch_map[ansible_facts['architecture']] }}"
+        dest: "{{ docker_compose_plugin_dir }}/docker-compose"
+        owner: root
+        group: root
+        mode: "0755"
+        timeout: 60
+      # Production: supply a trusted SHA-256 checksum
+      # using the checksum parameter.
+
+    - name: Ensure Docker group exists
+      ansible.builtin.group:
+        name: docker
+        state: present
+
+    - name: Start and enable Docker daemon
+      ansible.builtin.systemd_service:
+        name: docker
+        state: started
+        enabled: true
+
+
+    - name: Add EC2 user to Docker group
+      ansible.builtin.user:
+        name: "{{ docker_user }}"
+        groups:
+          - docker
+        append: true
+        state: present
+      register: docker_group_membership
+
+    - name: Reset Ansible SSH connection
+      ansible.builtin.meta: reset_connection
+      when: docker_group_membership is changed
+
+    - name: Verify Docker access as EC2 user
+      become: true
+      become_user: "{{ docker_user }}"
+      ansible.builtin.command:
+        cmd: docker ps
+      register: docker_access
+      changed_when: false
+
+    - name: Verify Docker Compose v2
+      become: true
+      become_user: "{{ docker_user }}"
+      ansible.builtin.command:
+        cmd: docker compose version
+      register: docker_compose_result
+      changed_when: false
+
+    - name: Verify Docker daemon is active
+      ansible.builtin.command:
+        cmd: systemctl is-active docker
+      register: docker_daemon_status
+      changed_when: false
+      failed_when: docker_daemon_status.stdout != "active"
+
+    - name: Display Docker deployment summary
+      ansible.builtin.debug:
+        msg:
+          - "Docker access: successful"
+          - "Docker Compose: {{ docker_compose_result.stdout }}"
+          - "Docker daemon: {{ docker_daemon_status.stdout }}"
+
+
+- name: Test docker pull
+  hosts: ec2_docker_server
+  vars_files:
+    - ec2-docker-vars.yaml
+  tasks:
+    - name: Test docker pull Redis
+      become: true
+      become_user: "{{ docker_user }}"
+      community.docker.docker_image:
+        name: redis
+        source: pull
+
+
+- name: Start docker containers
+  hosts: ec2_docker_server
+  vars_files:
+    - ec2-docker-vars.yaml
+  tasks:
+    - name: Copy docker compose
+      become: true
+      become_user: "{{ docker_user }}"
+      ansible.builtin.copy:
+        src: docker-compose-full.yaml
+        dest: /home/{{ docker_user }}/docker-compose.yml
+        owner: "{{ docker_user }}"
+        group: "{{ docker_user }}"
+        mode: 0644
+
+    - name: Docker login
+      become: true
+      become_user: "{{ docker_user }}"
+      community.docker.docker_login:
+        registry_url: https://index.docker.io/v1/
+        username: "{{ dockerhub_username }}"
+        password: "{{ dockerhub_password }}"
+
+    - name: Start container from compose
+      community.docker.docker_compose_v2:
+        project_src: /home/{{ docker_user }}
+        files:
+          - docker-compose.yml
+        state: present
+        pull: missing
+        remove_orphans: true
+        wait: true
+        wait_timeout: 120
+      become: true
+      become_user: ec2-user
