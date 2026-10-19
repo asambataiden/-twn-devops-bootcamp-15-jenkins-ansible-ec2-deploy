@@ -39,6 +39,7 @@ pipeline {
                         remote.user = user
                         remote.identityFile = keyfile
                         sh '''ssh -o StrictHostKeyChecking=no -i "$keyfile" "$user@$ANSIBLE_SERVER_IP" "ls -l; pwd"'''
+                        sh '''ssh -o StrictHostKeyChecking=no -i "$keyfile" "$user@$ANSIBLE_SERVER_IP" "ansible-playbook my-playbook.yaml"'''
                     }
                 }
             }
