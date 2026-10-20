@@ -1,2 +1,15 @@
-.idea/*
-target
+# Python environments
+.venv/
+
+# SSH credentials
+*.pem
+*.key
+
+# Local runtime secrets
+.env
+*.env
+.vault-password
+.vault-password.txt
+
+# Temporary files
+*.retry

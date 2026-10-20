@@ -1,15 +1,22 @@
 ---
+# Non-sensitive configuration only. Never commit credentials.
 docker_user: ec2-user
+# Optional dedicated service user: change to appdeploy only after SSH/become access is planned.
+# docker_user: appdeploy
+docker_min_free_gib: 8
 docker_compose_version: "v2.40.3"
 docker_compose_plugin_dir: /usr/local/lib/docker/cli-plugins
-
 docker_compose_arch_map:
   x86_64: x86_64
   aarch64: aarch64
-
-docker_min_free_gib: 8
-
-dockerhub_username: "asambataiden"
-dockerhub_password: "Cashrules1##&&"
-
-docker_image_name: redis
+# Pin trusted checksums when promoting to production.
+docker_compose_checksums: {}
+# Redis exercise optional; enabled to preserve current learning task.
+docker_pull_test_enabled: true
+application_dir: /opt/twn-demo-app
+application_image: asambataiden/demo-app:java-maven-2.0
+application_http_port: 8080
+# Deployment defaults to public image; Docker Hub login is optional.
+docker_registry_login_enabled: false
+# Secrets required from ansible-vault or environment via extra-vars.
+# Required keys: mysql_root_password, mysql_password, dockerhub_username/password if login enabled.

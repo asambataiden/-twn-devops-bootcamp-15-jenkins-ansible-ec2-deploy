@@ -25,29 +25,49 @@ pipeline {
             }
         }
 
+
         stage("execute ansible playbook") {
             steps {
                 script {
-                    echo "calling ansible playbook to configure ec2 instances"
+                    echo "Calling Ansible playbook to configure EC2 instances"
 
                     def remote = [:]
                     remote.name = "ansible-server"
                     remote.host = ANSIBLE_SERVER_IP
                     remote.allowAnyHosts = true
 
-                    withCredentials([sshUserPrivateKey(
-                        credentialsId: 'ansible-server-key',
-                        keyFileVariable: 'keyfile',
-                        usernameVariable: 'user'
-                    )]) {
+                    withCredentials([
+                        sshUserPrivateKey(
+                            credentialsId: 'ansible-server-key',
+                            keyFileVariable: 'keyfile',
+                            usernameVariable: 'user'
+                        )
+                    ]) {
                         remote.user = user
                         remote.identityFile = keyfile
 
                         sshCommand remote: remote, command: "ls -l; pwd"
 
-                        sshCommand remote: remote, command: "cd /root && ansible-playbook deploy-docker-new-user.yaml"
-                    }
+                        withCredentials([
+                            string(
+                                credentialsId: 'ansible-vault-password',
+                                variable: 'VAULT_PASSWORD'
+                            )
+                        ]) {
+                            sh '''
+                                set +x
+                                set -eu
 
+                                printf '%s\\n' "$VAULT_PASSWORD" | \
+                                ssh -T \
+                                  -o BatchMode=yes \
+                                  -o StrictHostKeyChecking=yes \
+                                  -i "$keyfile" \
+                                  "$user@$ANSIBLE_SERVER_IP" \
+                                  'cd /root && ansible-playbook --vault-password-file /dev/stdin deploy-ansible-roles-docker-new-user.yaml'
+                            '''
+                        }
+                    }
                 }
             }
         }
