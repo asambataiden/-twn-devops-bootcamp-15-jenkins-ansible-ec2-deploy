@@ -5,7 +5,7 @@
   gather_facts: true
   vars_files:
     - ec2-docker-vars.yaml
-    - secrets.vault.yaml
+    - secrets.vault.yml
 
   roles:
     - linux_baseline
