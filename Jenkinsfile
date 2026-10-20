@@ -35,12 +35,19 @@ pipeline {
                     remote.host = ANSIBLE_SERVER_IP
                     remote.allowAnyHosts = true
 
-                    withCredentials([sshUserPrivateKey(credentialsId: 'ansible-server-key', keyFileVariable: 'keyfile', usernameVariable: 'user')]) {
+                    withCredentials([sshUserPrivateKey(
+                        credentialsId: 'ansible-server-key',
+                        keyFileVariable: 'keyfile',
+                        usernameVariable: 'user'
+                    )]) {
                         remote.user = user
                         remote.identityFile = keyfile
-                        sh '''ssh -o StrictHostKeyChecking=no -i "$keyfile" "$user@$ANSIBLE_SERVER_IP" "ls -l; pwd"'''
-                        sh '''ssh -o StrictHostKeyChecking=no -i "$keyfile" "$user@$ANSIBLE_SERVER_IP" "cd /root && ansible-playbook deploy-docker-new-user.yaml"'''
+
+                        sshCommand remote: remote, command: "ls -l; pwd"
+
+                        sshCommand remote: remote, command: "cd /root && ansible-playbook deploy-docker-new-user.yaml"
                     }
+
                 }
             }
         }
