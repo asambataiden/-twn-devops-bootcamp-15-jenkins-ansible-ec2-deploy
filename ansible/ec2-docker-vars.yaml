@@ -7,6 +7,7 @@ docker_compose_arch_map:
   x86_64: x86_64
   aarch64: aarch64
 
+docker_min_free_gib: 8
 
 dockerhub_username: "asambataiden"
 dockerhub_password: "Cashrules1##&&"

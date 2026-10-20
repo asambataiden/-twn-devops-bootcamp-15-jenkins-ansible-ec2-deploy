@@ -20,6 +20,26 @@
           on x86_64 or aarch64.
 
   tasks:
+
+    - name: Check available Docker storage
+      ansible.builtin.command:
+        cmd: df -B1 --output=avail /var/lib/docker
+      register: docker_disk_space
+      changed_when: false
+
+    - name: Validate minimum Docker disk capacity
+      ansible.builtin.assert:
+        that:
+          - (docker_disk_space.stdout_lines[-1] | trim | int) >= (docker_min_free_gib | int * 1024 ** 3)
+        fail_msg: >-
+          Insufficient Docker storage on {{ inventory_hostname }}.
+          At least {{ docker_min_free_gib }} GiB of free space is required
+          before downloading application images.
+        success_msg: >-
+          Docker storage preflight passed on {{ inventory_hostname }}.
+          Required minimum: {{ docker_min_free_gib }} GiB.
+      changed_when: false
+
     - name: Install Python 3 and Docker Engine
       ansible.builtin.dnf:
         name:
