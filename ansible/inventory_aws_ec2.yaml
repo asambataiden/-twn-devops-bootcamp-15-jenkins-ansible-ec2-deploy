@@ -19,7 +19,7 @@ keyed_groups:
 
 filters:
   instance-state-name: running
-  tag:Name: dev-server-*
+  tag:Name: ansible-server
 
 hostnames:
   - dns-name
