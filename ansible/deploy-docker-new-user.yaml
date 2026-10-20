@@ -178,13 +178,12 @@
 
     - name: Start container from compose
       community.docker.docker_compose_v2:
-        project_src: /home/{{ docker_user }}
+        project_src: "/home/{{ docker_user }}"
         files:
           - docker-compose.yml
         state: present
         pull: missing
         remove_orphans: true
-        wait: true
-        wait_timeout: 120
+        timeout: 120
       become: true
       become_user: ec2-user
